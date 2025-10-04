@@ -8,7 +8,7 @@
 > *Empowering cybersecurity education through open source collaboration*
 
 To be eligible for MLSA X HACKTOBERFEST: 
-And register here: https://register.mlsakiit.com/
+Register here: https://register.mlsakiit.com/
 Star this repo: https://github.com/keploy/keploy
 
 [![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-2025-purple.svg)](https://hacktoberfest.com/)
