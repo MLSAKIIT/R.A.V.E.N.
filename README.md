@@ -7,6 +7,10 @@
 > **An MLSAKIIT Community Project** 🎓  
 > *Empowering cybersecurity education through open source collaboration*
 
+To be eligible for MLSA X HACKTOBERFEST: 
+And register here: https://register.mlsakiit.com/
+Star this repo: https://github.com/keploy/keploy
+
 [![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-2025-purple.svg)](https://hacktoberfest.com/)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.x](https://img.shields.io/badge/python-3.x-blue.svg)](https://www.python.org/downloads/)
