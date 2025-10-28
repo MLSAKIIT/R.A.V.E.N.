@@ -9,7 +9,7 @@ Usage:
 
 import os
 import sys
-import base64   
+import base64
 import codecs
 import urllib.parse
 import logging
@@ -19,6 +19,26 @@ from typing import Optional
 import itertools
 import time
 import fnmatch
+
+# --- Safe line buffering setup ---
+import functools
+print = functools.partial(print, flush=True)
+
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+except Exception:
+    pass
+
+# --- Force unbuffered mode (for nested bash execution) ---
+os.environ["PYTHONUNBUFFERED"] = "1"
+
+# --- Define a universal safe print ---
+def pflush(*args, **kwargs):
+    """Force all prints to flush immediately."""
+    # call built-in print with flush=True by default
+    if "flush" not in kwargs:
+        kwargs["flush"] = True
+    print(*args, **kwargs)
 
 # --------------------------
 # Logging & Colors
@@ -32,17 +52,21 @@ class C:
     BOLD = "\033[1m"
     RESET = "\033[0m"
 
+# A small helper to ensure immediate flush for all interactive prints
+def safe_pflush(s: str = "", end: str = "\n"):
+    pflush(s, end=end)
+
 def info(msg: str):
-    print(f"{C.CYAN}{msg}{C.RESET}")
+    safe_pflush(f"{C.CYAN}{msg}{C.RESET}")
 
 def ok(msg: str):
-    print(f"{C.GREEN}{msg}{C.RESET}")
+    safe_pflush(f"{C.GREEN}{msg}{C.RESET}")
 
 def warn(msg: str):
-    print(f"{C.YELLOW}{msg}{C.RESET}")
+    safe_pflush(f"{C.YELLOW}{msg}{C.RESET}")
 
 def err(msg: str):
-    print(f"{C.RED}{msg}{C.RESET}")
+    safe_pflush(f"{C.RED}{msg}{C.RESET}")
 
 # --------------------------
 # Encoding / Decoding (bytes)
@@ -130,6 +154,7 @@ def detect_encoding_bytes(data: bytes) -> Optional[str]:
         pass
 
     return None
+
 # --------------------------
 # Cipher Functions
 
@@ -171,8 +196,6 @@ def xor_cipher(data, key):
 # File search & IO
 # --------------------------
 import fnmatch
-
-#--------encoder/decoder---------
 
 def find_file(filename: str, root: Path = None) -> Optional[Path]:
     """
@@ -233,7 +256,7 @@ def make_output_path(original: Path, mode: str, encoding_type: str, outdir: Path
 # Interactive flows
 # --------------------------
 
-#--------encodeing decoding
+#--------encoding decoding
 def interactive_file_mode_enco(outdir: Path):
     fname = input("Enter filename to search for (relative to cwd): ").strip()
     if not fname:
@@ -255,8 +278,8 @@ def interactive_file_mode_enco(outdir: Path):
     data = read_file_bytes(file_path)
 
     if action == "e":
-        print("Choose encoding type:")
-        print("1) Base64\n2) Hex\n3) ROT13 (text only)\n4) URL (text only)")
+        safe_pflush("Choose encoding type:")
+        safe_pflush("1) Base64\n2) Hex\n3) ROT13 (text only)\n4) URL (text only)")
         choice = input("Enter choice (1-4): ").strip()
         typemap = {"1": "base64", "2": "hex", "3": "rot13", "4":"url"}
         encoding = typemap.get(choice)
@@ -363,8 +386,8 @@ def interactive_text_mode_enco(outdir: Path):
         return
 
     if action == "e":
-        print("Choose encoding type:")
-        print("1) Base64\n2) Hex\n3) ROT13\n4) URL")
+        safe_pflush("Choose encoding type:")
+        safe_pflush("1) Base64\n2) Hex\n3) ROT13\n4) URL")
         choice = input("Enter choice (1-4): ").strip()
         typemap = {"1":"base64", "2":"hex", "3":"rot13", "4":"url"}
         encoding = typemap.get(choice)
@@ -407,11 +430,11 @@ def interactive_text_mode_enco(outdir: Path):
 
 def interactive_encoder_decoder(outdir: Path):
     while True:
-        print()
+        safe_pflush()
         info("🎧 Encore Encoder — Encode / Decode Anything")
-        print("1) File Encode/Decode")
-        print("2) Text Encode/Decode")
-        print("3) Back to Main Menu")
+        safe_pflush("1) File Encode/Decode")
+        safe_pflush("2) Text Encode/Decode")
+        safe_pflush("3) Back to Main Menu")
         choice = input("Enter choice (1-3): ").strip()
 
         if choice == "1":
@@ -428,11 +451,12 @@ def interactive_encoder_decoder(outdir: Path):
 
 def interactive_cipher_mode(outdir: Path):
     info("🔐 Cipher/Decipher Mode")
+    # ensure the info above is flushed before the input prompt
     mode = input("Encrypt or Decrypt? (e/d): ").strip().lower()
     decrypt = mode == "d"
 
-    print("Choose Cipher:")
-    print("1) Caesar\n2) Vigenère\n3) XOR")
+    safe_pflush("Choose Cipher:")
+    safe_pflush("1) Caesar\n2) Vigenère\n3) XOR")
     choice = input("Enter choice (1-3): ").strip()
 
     t_or_f = input("Work with text or file? (t/f): ").strip().lower()
@@ -454,7 +478,7 @@ def interactive_cipher_mode(outdir: Path):
             return
 
         ok("\nResult:")
-        print(result)
+        safe_pflush(result)
 
     elif t_or_f == "f":
         filename = input("Enter filename to search for: ").strip()
@@ -527,7 +551,7 @@ def interactive_hashing(outdir: Optional[Path] = None):
     outdir = Path(outdir) if outdir else (Path.home() / "echocheck")
     outdir.mkdir(parents=True, exist_ok=True)
 
-    print("🔢 Hector the Hasher — Hash anything securely!")
+    safe_pflush("🔢 Hector the Hasher — Hash anything securely!")
     user_input = input("📂 Enter filename to hash (or type text directly): ").strip()
     if not user_input:
         err("No input provided.")
@@ -544,7 +568,7 @@ def interactive_hashing(outdir: Optional[Path] = None):
             file_path = found
         else:
             ok("Treating input as plain text.")
-    
+
     algo = input("Choose algorithm (md5 / sha1 / sha256 / sha512 / blake2b): ").lower().strip()
     supported = {"md5", "sha1", "sha256", "sha512", "blake2b"}
     if algo not in supported:
@@ -577,12 +601,16 @@ def interactive_hashing(outdir: Optional[Path] = None):
     target.write_text(digest, encoding="utf-8")
     ok(f"💾 Saved digest to: {target}")
 
-#--------enpcrypter decrypter----------
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.backends import default_backend
-import secrets
+#--------Encryptor / Decryptor (AES-GCM PBKDF2)----------
+try:
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.backends import default_backend
+    import secrets
+except Exception:
+    # If cryptography is not available, the encryptor will error at runtime with a clear message.
+    pass
 
 def interactive_encryptor(outdir: Path):
     """
@@ -592,10 +620,10 @@ def interactive_encryptor(outdir: Path):
     try:
         import base64
 
-        print()
-        print("Choose mode:")
-        print("1) Encrypt file")
-        print("2) Decrypt file")
+        safe_pflush()
+        safe_pflush("Choose mode:")
+        safe_pflush("1) Encrypt file")
+        safe_pflush("2) Decrypt file")
         mode = input("Enter choice (1-2): ").strip()
 
         if mode not in ("1", "2"):
@@ -670,12 +698,7 @@ def interactive_encryptor(outdir: Path):
         warn("Interrupted by user.")
 
 #-----------Hash Cracker------------
-
-import hashlib
-import itertools
-import time
-from typing import Optional, Iterable
-
+# (reuse the interactive_crack_hash and cli wrapper from your original)
 def interactive_crack_hash(
     target_hash: str,
     algo: str = "md5",
@@ -690,50 +713,16 @@ def interactive_crack_hash(
     show_progress: bool = True,
     max_attempts: Optional[int] = None,
 ) -> Optional[str]:
-    """
-    Try to recover the plaintext for `target_hash` using a dictionary attack
-    and optionally a brute-force attack.
-
-    Parameters
-    ----------
-    target_hash : str
-        Hex digest string to crack.
-    algo : str
-        Hash algorithm name (md5, sha1, sha256, sha512).
-    dictionary_path : Optional[Path]
-        Path to a newline-separated wordlist file to try first (dictionary attack).
-    do_bruteforce : bool
-        If True, run brute-force after dictionary (use with care).
-    charset : str
-        Characters to use for brute-force generation.
-    min_len, max_len : int
-        Minimum/maximum length for brute-forcing.
-    salt : Optional[str]
-        If not None, treat candidate as salted; salt_position controls where salt is applied.
-    salt_position : str
-        "prefix", "suffix", or "none"
-    case_variants : bool
-        If True and dictionary is used, also try simple case variants (lower, upper, capitalize).
-    show_progress : bool
-        Print status updates.
-    max_attempts : Optional[int]
-        Stop after this many attempts (None = unlimited).
-
-    Returns
-    -------
-    Optional[str]
-        The recovered plaintext if found, otherwise None.
-    """
-
     target_hash = target_hash.strip().lower()
     algo = algo.lower()
 
     # Validate algorithm
-    if not hasattr(hashlib, algo):
+    import hashlib as _hashlib
+    if not hasattr(_hashlib, algo):
         err(f"Unsupported hash algorithm: {algo}")
         return None
 
-    hasher_factory = lambda: getattr(hashlib, algo)()
+    hasher_factory = lambda: getattr(_hashlib, algo)()
 
     def hash_candidate(candidate: str) -> str:
         """Return hexdigest for candidate with optional salt placement."""
@@ -750,7 +739,6 @@ def interactive_crack_hash(
     attempts = 0
     start_time = time.time()
 
-    # --- Helper to check candidate and report ---
     def try_candidate(cand: str) -> Optional[str]:
         nonlocal attempts
         attempts += 1
@@ -761,7 +749,7 @@ def interactive_crack_hash(
             return cand
         return None
 
-    # --- DICTIONARY ATTACK ---
+    # DICTIONARY
     if dictionary_path:
         if show_progress:
             info(f"🔎 Starting dictionary attack using: {dictionary_path}")
@@ -772,17 +760,15 @@ def interactive_crack_hash(
                     if not word:
                         continue
 
-                    # Try the word itself
                     found = try_candidate(word)
                     if found:
                         if show_progress:
                             ok(f"✅ Found (dictionary): {found} after {attempts} attempts")
                         return found
 
-                    # Common case variants if asked
                     if case_variants:
                         for cand in (word.lower(), word.upper(), word.capitalize()):
-                            if cand == word:  # already tried
+                            if cand == word:
                                 continue
                             found = try_candidate(cand)
                             if found:
@@ -790,24 +776,16 @@ def interactive_crack_hash(
                                     ok(f"✅ Found (dictionary variant): {found} after {attempts} attempts")
                                 return found
 
-                    # Optionally try simple numeric suffixes (common passwords like pass123)
-                    # (keep this optional/disabled for speed / uncomment if desired)
-                    # for n in range(0, 100):
-                    #     found = try_candidate(f"{word}{n}")
-                    #     if found:
-                    #         return found
-
-                    # Print progress occasionally
                     if show_progress and attempts % 5000 == 0:
                         elapsed = time.time() - start_time
                         rate = attempts / elapsed if elapsed > 0 else 0
-                        print(f"... tried {attempts} candidates, {rate:.1f} tries/sec")
+                        pflush(f"... tried {attempts} candidates, {rate:.1f} tries/sec")
         except FileNotFoundError:
             err(f"Wordlist file not found: {dictionary_path}")
         except Exception as e:
             err(f"Dictionary attack error: {e}")
 
-    # If we got here and found nothing, proceed to brute-force if requested
+    # BRUTE-FORCE
     if do_bruteforce:
         if show_progress:
             info("🔎 Starting brute-force attack (this can be very slow!)")
@@ -817,7 +795,6 @@ def interactive_crack_hash(
         if show_progress:
             warn(f"Estimated attempts: ~{total_attempts_est:,} (do not run large lengths)")
 
-        # Iterate lengths
         try:
             for L in range(min_len, max_len + 1):
                 if show_progress:
@@ -829,11 +806,10 @@ def interactive_crack_hash(
                         if show_progress:
                             ok(f"✅ Found (bruteforce): {found} after {attempts} attempts")
                         return found
-                    # occasionally print status
                     if show_progress and attempts % 100000 == 0:
                         elapsed = time.time() - start_time
                         rate = attempts / elapsed if elapsed > 0 else 0
-                        print(f"... tried {attempts} candidates, {rate:.1f} tries/sec")
+                        pflush(f"... tried {attempts} candidates, {rate:.1f} tries/sec")
                     if max_attempts is not None and attempts >= max_attempts:
                         warn("Max attempts reached, stopping.")
                         return None
@@ -844,17 +820,12 @@ def interactive_crack_hash(
             err(f"Brute-force error: {e}")
             return None
 
-    # If nothing found
     if show_progress:
         elapsed = time.time() - start_time
         info(f"Finished. Attempts: {attempts} Time: {elapsed:.1f}s")
     return None
-#wrapper 
+
 def interactive_crack_hash_cli(outdir: Optional[Path] = None):
-    """
-    Interactive CLI wrapper that prompts the user for the target hash and options,
-    then calls the core interactive_crack_hash(...) function.
-    """
     outdir = Path(outdir) if outdir else (Path.home() / "echocheck")
     try:
         target_hash = input("Enter target hash (hex digest): ").strip()
@@ -916,7 +887,6 @@ def interactive_crack_hash_cli(outdir: Optional[Path] = None):
 
         if found:
             ok(f"✅ Hash cracked: {found}")
-            # Save recovered plaintext
             if outdir:
                 outdir.mkdir(parents=True, exist_ok=True)
                 fn = outdir / f"cracked_{algo}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
@@ -927,7 +897,6 @@ def interactive_crack_hash_cli(outdir: Optional[Path] = None):
 
     except KeyboardInterrupt:
         warn("Interrupted by user.")
-
 
 
 # --------------------------
@@ -943,14 +912,14 @@ def main_loop():
 
     try:
         while True:
-            print()
-            print("Choose mode:")
-            print("1) Encore Encoder&Decoder")
-            print("2) Hush hashing tool")
-            print("3) cyphy cipher tool")
-            print("4) Encore Encryptor/Decryptor")
-            print("5) Hector the hash cracker")
-            print("6) Quit")
+            safe_pflush()
+            safe_pflush("Choose mode:")
+            safe_pflush("1) Encore Encoder&Decoder")
+            safe_pflush("2) Hush hashing tool")
+            safe_pflush("3) cyphy cipher tool")
+            safe_pflush("4) Encore Encryptor/Decryptor")
+            safe_pflush("5) Hector the hash cracker")
+            safe_pflush("6) Quit")
             mode = input("Enter choice (1-6): ").strip()
             if mode == "1":
                 interactive_encoder_decoder(outdir)
@@ -968,9 +937,8 @@ def main_loop():
             else:
                 warn("Invalid option, try again.")
     except KeyboardInterrupt:
-        print()  # newline
+        safe_pflush()  # newline
         warn("Interrupted by user. Exiting.")
 
 if __name__ == "__main__":
     main_loop()
-    
