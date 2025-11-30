@@ -23,6 +23,16 @@ NC='\033[0m'
 # ensure Python unbuffered
 export PYTHONUNBUFFERED=1
 
+# detect python command for cross-platform (python3 or python)
+if command -v python3 >/dev/null 2>&1; then
+    PYTHON_CMD=python3
+elif command -v python >/dev/null 2>&1; then
+    PYTHON_CMD=python
+else
+    PYTHON_CMD=python3
+fi
+
+
 # -------------------------
 # Banner
 # -------------------------
@@ -49,6 +59,16 @@ EOF
     echo
     echo
 }
+
+# --------------------------------------------------
+# Contributed scripts (added by contributor)
+# - scripts/crypto/file_integrity.py
+# - scripts/enumeration/fast_port_scan.py
+# - scripts/exploitation/lfi_checker.py
+# - scripts/osint/domain_info.py
+# - scripts/payloads/reverse_shell_generator.py
+# - scripts/scanning/subdomain_mapper.py
+# --------------------------------------------------
 
 # -------------------------
 # Script counters
@@ -219,39 +239,76 @@ run_script() {
     echo
     echo -e "   ${ROYAL_BLUE}◆ SCRIPT:${NC} ${WHITE}${script_name}${NC}"
     echo
-
+    # capture and show help (non-interactive) so user sees usage
+    local help_output
     if [[ "$script_ext" == "py" ]]; then
-        echo -e "${ROYAL_BLUE}▶ Displaying Python script help:${NC}"
-        _run_with_tty python3 -u "$script_path" --help 2>/dev/null || echo -e "${BRIGHT_RED}◇ No help available for this script${NC}"
-    elif [[ "$script_ext" == "sh" ]]; then
-        echo -e "${ROYAL_BLUE}▶ Displaying Shell script help:${NC}"
-        bash "$script_path" --help 2>/dev/null || echo -e "${BRIGHT_RED}◇ No help available for this script${NC}"
+        help_output=$("$PYTHON_CMD" -u "$script_path" --help 2>&1 || true)
+    else
+        help_output=$(bash "$script_path" --help 2>&1 || true)
     fi
 
-    echo
-    echo -ne "${BRIGHT_RED}Execute with custom arguments? (y/N): ${NC}"
-    read -r execute_choice
-    if [[ "$execute_choice" =~ ^[Yy]$ ]]; then
-        echo -ne "${BRIGHT_RED}▶ Enter arguments: ${NC}"
+    if [[ -n "$help_output" ]]; then
+        echo -e "${ROYAL_BLUE}▶ Script help:${NC}"
+        echo "$help_output"
+    fi
+
+    # inspect usage line to determine if positional args are required
+    local usage_line
+    usage_line=$(printf "%s\n" "$help_output" | grep -i '^usage:' -m1 || true)
+    local requires_args=false
+    if [[ -n "$usage_line" ]]; then
+        # remove leading 'usage:' and program name
+        # usage: progname [-h] arg1 [arg2]
+        usage_line=$(printf "%s" "$usage_line" | sed -E 's/^[Uu][Ss][Aa][Gg][Ee]: *//')
+        # drop the program name
+        usage_line=$(printf "%s" "$usage_line" | sed -E 's/^[^ ]+ *//')
+        # check tokens; non-option, non-optional tokens imply required positional args
+        for token in $usage_line; do
+            # skip options like [-h] or --opt
+            if [[ "$token" == "" ]]; then
+                continue
+            fi
+            if [[ ${token:0:1} == "-" ]]; then
+                continue
+            fi
+            if [[ ${token:0:1} == "[" ]]; then
+                continue
+            fi
+            # found a positional token that is not optional
+            requires_args=true
+            break
+        done
+    fi
+
+    if $requires_args; then
+        echo
+        echo -ne "${BRIGHT_RED}▶ This script expects arguments. Enter them (or press ENTER to cancel): ${NC}"
         IFS= read -r args_line
+        if [[ -z "$args_line" ]]; then
+            echo -e "${ROYAL_BLUE}▶ Execution cancelled${NC}"
+            return
+        fi
+        # split args and execute
         read -r -a args_array <<< "$args_line"
+        echo -e "                        ${BRIGHT_RED}⟨ EXECUTING ${script_name} ⟩${NC}"
         echo
-
-        echo -e "                        ${BRIGHT_RED}⟨ EXECUTING EXPLOIT ⟩${NC}"
-        echo
-
         if [[ "$script_ext" == "py" ]]; then
-            # run python with stdout/stderr/stdin attached to tty
-            _run_with_tty python3 -u "$script_path" "${args_array[@]}"
+            _run_with_tty "$PYTHON_CMD" -u "$script_path" "${args_array[@]}"
         else
             _run_with_tty bash "$script_path" "${args_array[@]}"
         fi
-
-        echo
-        echo -e "                      ${ROYAL_BLUE}⟨ EXECUTION COMPLETED ⟩${NC}"
     else
-        echo -e "${ROYAL_BLUE}▶ Execution cancelled${NC}"
+        echo -e "                        ${BRIGHT_RED}⟨ EXECUTING ${script_name} (no args) ⟩${NC}"
+        echo
+        if [[ "$script_ext" == "py" ]]; then
+            _run_with_tty "$PYTHON_CMD" -u "$script_path"
+        else
+            _run_with_tty bash "$script_path"
+        fi
     fi
+
+    echo
+    echo -e "                      ${ROYAL_BLUE}⟨ EXECUTION COMPLETED ⟩${NC}"
 }
 
 # -------------------------
