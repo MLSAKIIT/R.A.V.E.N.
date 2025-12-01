@@ -1,12 +1,26 @@
 #!/usr/bin/env bash
 
-# R.A.V.E.N - Interactive launcher
-# Lean, robust interactive script
+# R.A.V.E.N - Rapid Automation & Vulnerability Enumeration for Networks
+# Interactive launcher with themed menu
 
 set -euo pipefail
 
 # Basic settings
 export PYTHONUNBUFFERED=1
+
+# Color definitions
+BRIGHT_RED='\033[1;31m'
+CRIMSON='\033[38;5;196m'
+ROYAL_BLUE='\033[38;5;21m'
+ELECTRIC_BLUE='\033[38;5;33m'
+DEEP_PURPLE='\033[38;5;55m'
+VIOLET='\033[38;5;93m'
+WHITE='\033[0;37m'
+CYAN='\033[0;36m'
+YELLOW='\033[0;33m'
+GREEN='\033[0;32m'
+BOLD='\033[1m'
+NC='\033[0m'
 
 # detect python
 if command -v python3 >/dev/null 2>&1; then
@@ -21,8 +35,33 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 SCRIPTS_DIR="$SCRIPT_DIR/scripts"
 
-# Simple Ctrl-C trap (plain)
-trap 'echo; echo "Session terminated by user."; stty sane 2>/dev/null || true; exit 0' INT
+# Ctrl-C trap
+trap 'echo; echo -e "${CRIMSON}Session terminated by user.${NC}"; stty sane 2>/dev/null || true; exit 0' INT
+
+# Banner
+show_banner() {
+    printf "\033[2J\033[H"
+    echo
+    echo -e "${BRIGHT_RED}"
+    cat << "EOF"
+    ▄▄▄▄▄▄▄▄▄▄▄     ▄▄▄▄▄▄▄▄▄▄▄  ▄               ▄  ▄▄▄▄▄▄▄▄▄▄▄     ▄▄        ▄
+   ▐░░░░░░░░░░░▌   ▐░░░░░░░░░░░▌▐░▌             ▐░▌▐░░░░░░░░░░░▌   ▐░░▌      ▐░▌
+   ▐░█▀▀▀▀▀▀▀█░▌   ▐░█▀▀▀▀▀▀▀█░▌ ▐░▌           ▐░▌ ▐░█▀▀▀▀▀▀▀▀▀    ▐░▌░▌     ▐░▌
+   ▐░▌       ▐░▌   ▐░▌       ▐░▌  ▐░▌         ▐░▌  ▐░▌             ▐░▌▐░▌    ▐░▌
+   ▐░█▄▄▄▄▄▄▄█░▌   ▐░█▄▄▄▄▄▄▄█░▌   ▐░▌       ▐░▌   ▐░█▄▄▄▄▄▄▄▄▄    ▐░▌ ▐░▌   ▐░▌
+   ▐░░░░░░░░░░░▌   ▐░░░░░░░░░░░▌    ▐░▌     ▐░▌    ▐░░░░░░░░░░░▌   ▐░▌  ▐░▌  ▐░▌
+   ▐░█▀▀▀▀█░█▀▀    ▐░█▀▀▀▀▀▀▀█░▌     ▐░▌   ▐░▌     ▐░█▀▀▀▀▀▀▀▀▀    ▐░▌   ▐░▌ ▐░▌
+   ▐░▌     ▐░▌     ▐░▌       ▐░▌      ▐░▌ ▐░▌      ▐░▌             ▐░▌    ▐░▌▐░▌
+   ▐░▌      ▐░▌  ▄ ▐░▌       ▐░▌ ▄     ▐░▐░▌▄      ▐░█▄▄▄▄▄▄▄▄▄  ▄ ▐░▌     ▐░▐░▌ ▄
+   ▐░▌       ▐░▌▐░▌▐░▌       ▐░▌▐░▌     ▐░▌▐░▌     ▐░░░░░░░░░░░▌▐░▌▐░▌      ▐░░▌▐░▌
+    ▀         ▀  ▀  ▀         ▀  ▀       ▀  ▀       ▀▀▀▀▀▀▀▀▀▀▀  ▀  ▀        ▀▀  ▀
+EOF
+    echo -e "${NC}"
+    echo
+    echo -e "    ${CRIMSON}⟨ R.A.V.E.N. ⟩${NC} ${ROYAL_BLUE}Rapid Automation & Vulnerability Enumeration for Networks${NC}"
+    echo
+    echo
+}
 
 # Helper: safe run with tty mapping if available
 _run_with_tty() {
@@ -58,20 +97,34 @@ init_script_counts() {
 
 get_script_count() { echo "${script_counts[$1]:-0}"; }
 
-# Simple menu (plain text)
+# Themed menu display
 show_main_menu() {
     echo
-    echo "R.A.V.E.N. - Select category"
+    echo -e "                        ${BRIGHT_RED}⟨ SELECT ATTACK VECTOR ⟩${NC}"
     echo
-    printf "  [1] Crypto            %s\n" "[${script_counts[crypto]} scripts]"
-    printf "  [2] Enumeration       %s\n" "[${script_counts[enumeration]} scripts]"
-    printf "  [3] Exploitation      %s\n" "[${script_counts[exploitation]} scripts]"
-    printf "  [4] OSINT             %s\n" "[${script_counts[osint]} scripts]"
-    printf "  [5] Payloads          %s\n" "[${script_counts[payloads]} scripts]"
-    printf "  [6] Scanning          %s\n" "[${script_counts[scanning]} scripts]"
-    printf "  [7] Utils             %s\n" "[${script_counts[utils]} scripts]"
+
+    declare -A categories=(
+        ["1"]="crypto:🔐 Cryptographic Tools:${BRIGHT_RED}"
+        ["2"]="enumeration:📊 Service Enumeration Tools:${ROYAL_BLUE}"
+        ["3"]="exploitation:💥 Exploit Tools and Payloads:${DEEP_PURPLE}"
+        ["4"]="osint:🕵️ Open Source Intelligence:${CRIMSON}"
+        ["5"]="payloads:🎯 Payload Generators:${ELECTRIC_BLUE}"
+        ["6"]="scanning:🔍 Port Scanning and Service Detection:${VIOLET}"
+        ["7"]="utils:🔧 General Utility Scripts:${BRIGHT_RED}"
+    )
+
+    for key in {1..7}; do
+        IFS=':' read -r folder description color <<< "${categories[$key]}"
+        script_count=$(get_script_count "$folder")
+        if [[ $script_count -gt 0 ]]; then
+            status="${ROYAL_BLUE}◆ ${script_count} LOADED${NC}"
+        else
+            status="${BRIGHT_RED}◇ AWAITING CONTRIBUTION${NC}"
+        fi
+        printf "   ${color}[%2s]${NC} ${WHITE}%-45s${NC} ${status}\n" "$key" "${description#* }"
+    done
     echo
-    echo "  [99] Exit"
+    echo -e "   ${CRIMSON}[99] ⟨ TERMINATE SESSION ⟩${NC}"
     echo
 }
 
@@ -79,21 +132,34 @@ list_scripts() {
     local category=$1
     local label=$2
     if [ ! -d "$SCRIPTS_DIR/$category" ]; then
-        echo "No scripts in $label."; echo; read -r -p "Press Enter to continue..."; return
+        echo
+        echo -e "                        ${BRIGHT_RED}⟨ ${label^^} MODULE ⟩${NC}"
+        echo
+        echo -e "   ${ROYAL_BLUE}◇ NO EXPLOITS LOADED IN THIS MODULE${NC}"
+        echo -e "   ${ROYAL_BLUE}◇ AWAITING CONTRIBUTION...${NC}"
+        echo -e "   ${ROYAL_BLUE}◇ CHECK CONTRIBUTING.md FOR DEPLOYMENT GUIDE${NC}"
+        echo
+        read -r -p "Press Enter to continue..."
+        return
     fi
     mapfile -t scripts < <(find "$SCRIPTS_DIR/$category" -maxdepth 2 -type f \( -name "*.py" -o -name "*.sh" \) 2>/dev/null | sort)
-    if [ ${#scripts[@]} -eq 0 ]; then echo "No scripts in $label."; echo; read -r -p "Press Enter to continue..."; return; fi
+    if [ ${#scripts[@]} -eq 0 ]; then 
+        echo -e "   ${ROYAL_BLUE}◇ NO EXPLOITS LOADED IN THIS MODULE${NC}"; echo
+        read -r -p "Press Enter to continue..."
+        return
+    fi
     while true; do
         echo
-        echo "$label - choose a script"
+        echo -e "                        ${BRIGHT_RED}⟨ ${label^^} TOOLKIT ⟩${NC}"
+        echo
         local i=1
         for sp in "${scripts[@]}"; do
             name=$(basename "$sp")
             ext=${name##*.}
-            printf "  [%2d] %s (%s)\n" "$i" "$name" "$ext"
+            printf "   ${CYAN}[%2d]${NC} ${WHITE}%s${NC} ${YELLOW}(%s)${NC}\n" "$i" "$name" "$ext"
             i=$((i+1))
         done
-        printf "  [%2d] Back\n" "$i"
+        printf "   ${CYAN}[%2d]${NC} ${WHITE}Back${NC}\n" "$i"
         echo
         read -r -p "Select script: " sel
         if ! printf "%s" "$sel" | grep -qE '^[0-9]+$'; then echo "Invalid"; continue; fi
@@ -278,6 +344,7 @@ run_script() {
 
 # Main loop
 init_script_counts
+show_banner
 while true; do
     show_main_menu
     read -r -p "Select category: " choice
@@ -289,7 +356,7 @@ while true; do
         5) list_scripts payloads "Payloads" ;; 
         6) list_scripts scanning "Scanning" ;; 
         7) list_scripts utils "Utils" ;; 
-        99) echo "Goodbye."; exit 0 ;;
+        99) echo -e "${CRIMSON}Goodbye.${NC}"; exit 0 ;;
         *) echo "Invalid selection."; sleep 1 ;;
     esac
 done
